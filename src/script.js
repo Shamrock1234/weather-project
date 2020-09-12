@@ -67,7 +67,7 @@ function getPosition(position) {
 function searchCity(city) {
   let units = "imperial";
   let apiUrl = `https://api.openweathermap.org/data/2.5/weather?q=${city}&appid=${apiKey}&units=${units}`;
-  axios.get(apiUrl).then(getWeather);
+  axios.get(apiUrl).then(getWeather).catch((err) => handleError(err));
 }
 
 function searchRandomCity(event) {
@@ -93,9 +93,7 @@ function searchRandomCity(event) {
 
 function searchZip(zip, countryCode) {
   let units = "imperial";
-  let apiUrl = `api.openweathermap.org/data/2.5/weather?zip=${
-    (zip, countryCode)
-  }&appid=${apiKey}&units=${units}`;
+  let apiUrl = `https://api.openweathermap.org/data/2.5/weather?zip=${zip},${countryCode}&appid=${apiKey}&units=${units}`;
 
   axios
     .get(apiUrl)
@@ -105,18 +103,18 @@ function searchZip(zip, countryCode) {
 
 function getCity(event) {
   event.preventDefault();
-  let searchInput = document.querySelector("#search-input");
+  let searchInput = document.querySelector("#search-input").value;
 
-  let searchArray = searchInput.value.split(",");
+  let searchArray = searchInput.split(",");
   //test for zip,country
   if (!isNaN(searchInput)) {
     searchZip(searchInput, "");
-  } else if (searchArray.length == 2 && Number.isInteger(searchArray[0])) {
+  } else if (searchArray.length == 2 && !isNaN(searchArray[0])) {
     // zipcode and country
-    searchZip(searchArray[0], searchArray(1));
+    searchZip(searchArray[0], searchArray[1]);
   } else {
     //assume city
-    searchCity(searchInput.value);
+    searchCity(searchInput);
   }
 }
 
@@ -172,7 +170,6 @@ function getWeather(response) {
   let apiUrl = `https://api.openweathermap.org/data/2.5/onecall?lat=${lat}&lon=${lon}&
   exclude=minutely&appid=${apiKey}&units=imperial`;
   axios.get(apiUrl).then(getForecast);
-  axios.get(apiUrl).then(getHourly);
 }
 function getForecastDay(timestamp) {
   let dt = new Date(timestamp);
@@ -184,6 +181,13 @@ function getForecastDay(timestamp) {
 function getForecast(response) {
   console.log(response.data);
   event.preventDefault();
+  dailyLink.classList.add("active");
+
+  hourlyLink.classList.remove("active");
+  hourlyLink.classList.add("not-active");
+  dailyLink.classList.remove("not-active");
+  hourlyLink.addEventListener("click", getHourly);
+  dailyLink.removeEventListener("click", getForecast);
 
   let forecastElement = document.querySelector(".forecast");
   forecastElement.innerHTML = null;
@@ -223,17 +227,25 @@ function getForecast(response) {
 
 function getHourly(response) {
   event.preventDefault();
+  hourlyLink.classList.add("active");
+  dailyLink.classList.remove("active");
+  dailyLink.classList.add("not-active");
+  hourlyLink.classList.remove("not-active");
 
-  let hourlyElement = document.querySelector(".hourly");
+  dailyLink.addEventListener("click", getForecast);
+  hourlyLink.removeEventListener("click", getHourly);
+
+  let forecastElement = document.querySelector(".forecast");
+  forecastElement.innerHTML = null;
   let hourly = null;
 
   for (let index = 1; index < 6; index++) {
     hourly = response.data.hourly[index];
     hourlyFahrenheit = hourly.temp;
 
-    hourlyElement.innerHTML += `<div class="col col-xs-1">
+    forecastElement.innerHTML += `<div class="col col-xs-1 hide">
           <div>${formatHours(hourly.dt * 1000)}</div>
-          <div> <span class="hourly-high">${Math.round(
+          <div> <span class="forecast-high">${Math.round(
             hourlyFahrenheit
           )}</span>°</div>
           <div><img src="http://openweathermap.org/img/wn/${
@@ -243,26 +255,6 @@ function getHourly(response) {
   }
 }
 
-function hideDaily(event) {
-  event.preventDefault();
-  document.querySelector(".forecast").classList.add("hide");
-  document.querySelector(".hourly").classList.remove("hide");
-
-  document.querySelector("#daily-link").classList.add("not-active");
-  document.querySelector("#daily-link").classList.remove("active");
-  document.querySelector("#hourly-link").classList.add("active");
-  document.querySelector("#hourly-link").classList.remove("not-active");
-}
-function hideHourly(event) {
-  event.preventDefault();
-  document.querySelector(".forecast").classList.remove("hide");
-  document.querySelector(".hourly").classList.add("hide");
-
-  document.querySelector("#daily-link").classList.add("active");
-  document.querySelector("#daily-link").classList.remove("not-active");
-  document.querySelector("#hourly-link").classList.add("not-active");
-  document.querySelector("#hourly-link").classList.remove("active");
-}
 function getCelsius(event) {
   event.preventDefault();
   celsiusLink.classList.add("active");
@@ -354,10 +346,9 @@ celsiusLink.addEventListener("click", getCelsius);
 let fahrenheitLink = document.querySelector("#fahrenheit-link");
 
 let hourlyLink = document.querySelector("#hourly-link");
-hourlyLink.addEventListener("click", hideDaily);
+hourlyLink.addEventListener("click", getHourly);
 
 let dailyLink = document.querySelector("#daily-link");
-dailyLink.addEventListener("click", hideHourly);
 
 let fahrenheitTemperature = null;
 let forecastFahrenheitHigh = null;
@@ -366,6 +357,5 @@ let currentFahrenheitHigh = null;
 let currentFahrenheitLow = null;
 let hourlyFahrenheit = null;
 let hourly = null;
-let daily = null;
 
 searchCity("Tokyo");
